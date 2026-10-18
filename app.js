@@ -5,6 +5,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const TIME_ZONE = "Europe/Berlin";
     const DATA_URL = "./prayer-times.json";
 
+    const PRESET = window.PrayerEngine?.PRESETS?.hannoverAlHudaFit2026;
+
     const PRAYERS = [
         { name: "Fajr", key: "fajr" },
         { name: "Dhuhr", key: "dhuhr" },
@@ -20,8 +22,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const message = $("countdown-message");
     const switcher = $("date-switcher-button");
     const yearCopy = $("year-copy");
-
-    // These elements are used by the updated countdown UI.
     const nextHeading = $("next-prayer-heading");
     const nextTime = $("next-prayer-time");
     const countdown = $("countdown-timer");
@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let timetable = [];
     let selectedDate = "";
-    let intervalId;
+    let intervalId = null;
 
     const dateFormatter = new Intl.DateTimeFormat("en-GB", {
         timeZone: TIME_ZONE,
@@ -86,37 +86,96 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function showMessage(text, error = false) {
+        if (!message) return;
         message.textContent = text;
         message.classList.toggle("error-message", error);
     }
 
     /*
-     * Convert a Europe/Berlin wall-clock date and time to an instant.
-     * No fixed UTC offset is assumed.
-     *
-     * Times that fall inside a daylight-saving clock gap are rejected.
-     * Ambiguous times during the autumn clock change need confirmation
-     * if the source timetable specifies a time in that repeated hour.
+     * Official data always wins.
+     * An existing but incomplete official record is unavailable;
+     * it must not silently fall back to calculated values.
+     */
+    function getDay(key) {
+        const officialRecord = findRecord(key);
+
+        if (officialRecord && !isComplete(officialRecord)) {
+            return {
+                date: key,
+                source: "unavailable",
+                estimated: false,
+                label: "Official timetable record is incomplete.",
+                times: null
+            };
+        }
+
+        if (!window.PrayerEngine || !PRESET) {
+            if (!officialRecord) {
+                return {
+                    date: key,
+                    source: "unavailable",
+                    estimated: false,
+                    label: "Calculation engine is unavailable.",
+                    times: null
+                };
+            }
+        }
+
+        try {
+            const result = window.PrayerEngine.getDayTimes(
+                key,
+                timetable,
+                PRESET
+            );
+
+            if (!result || !result.times || !isComplete(result.times)) {
+                return {
+                    date: key,
+                    source: "unavailable",
+                    estimated: false,
+                    label: "Required prayer times are unavailable.",
+                    times: null
+                };
+            }
+
+            return result;
+        } catch (error) {
+            console.error(`Unable to resolve timetable for ${key}:`, error);
+
+            return {
+                date: key,
+                source: "unavailable",
+                estimated: false,
+                label: "Prayer times could not be calculated.",
+                times: null
+            };
+        }
+    }
+
+    /*
+     * Resolve a Berlin wall-clock time to an instant.
+     * Reject nonexistent local times during the spring DST transition.
      */
     function berlinInstant(key, time) {
         const [year, month, day] = key.split("-").map(Number);
         const [hour, minute] = time.split(":").map(Number);
-
         const target = Date.UTC(year, month - 1, day, hour, minute);
         let guess = target;
 
+        const formatter = new Intl.DateTimeFormat("en-GB", {
+            timeZone: TIME_ZONE,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hourCycle: "h23"
+        });
+
         for (let i = 0; i < 6; i++) {
             const parts = Object.fromEntries(
-                new Intl.DateTimeFormat("en-GB", {
-                    timeZone: TIME_ZONE,
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hourCycle: "h23"
-                }).formatToParts(new Date(guess))
+                formatter.formatToParts(new Date(guess))
                     .map(part => [part.type, part.value])
             );
 
@@ -135,57 +194,77 @@ document.addEventListener("DOMContentLoaded", () => {
             if (difference === 0) break;
         }
 
-        const result = new Date(guess);
-
-        // Verify the requested wall-clock time actually exists.
-        const check = new Intl.DateTimeFormat("en-GB", {
-            timeZone: TIME_ZONE,
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-            hourCycle: "h23"
-        }).formatToParts(result);
-
-        const parts = Object.fromEntries(
-            check.map(part => [part.type, part.value])
+        const check = Object.fromEntries(
+            new Intl.DateTimeFormat("en-GB", {
+                timeZone: TIME_ZONE,
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                hourCycle: "h23"
+            }).formatToParts(new Date(guess))
+                .map(part => [part.type, part.value])
         );
 
         if (
-            Number(parts.year) !== year ||
-            Number(parts.month) !== month ||
-            Number(parts.day) !== day ||
-            Number(parts.hour) !== hour ||
-            Number(parts.minute) !== minute
+            Number(check.year) !== year ||
+            Number(check.month) !== month ||
+            Number(check.day) !== day ||
+            Number(check.hour) !== hour ||
+            Number(check.minute) !== minute
         ) {
             throw new Error(
-                `The local time ${key} ${time} is not valid in ${TIME_ZONE}.`
+                `The local time ${key} ${time} is invalid in ${TIME_ZONE}.`
             );
         }
 
-        return result;
+        return new Date(guess);
+    }
+
+    function addSourceNotice(parent, day) {
+        const notice = document.createElement("p");
+        notice.className = day.estimated
+            ? "estimate-notice"
+            : "official-notice";
+
+        if (day.estimated) {
+            notice.textContent =
+                "ESTIMATE — Calculated times; not confirmed by Al-Huda. " ;
+
+            const link = document.createElement("a");
+            link.href = "https://alhuda-hannover.de/";
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = "Check the official timetable";
+
+            notice.appendChild(link);
+        } else {
+            notice.textContent = "Official timetable · Al-Huda Hannover";
+        }
+
+        parent.appendChild(notice);
     }
 
     function renderSchedule(key) {
-        const record = findRecord(key);
+        const day = getDay(key);
 
         dateDisplay.textContent = formatDate(key);
 
-        if (scheduleDate) {
-            scheduleDate.textContent = key;
-        }
+        if (scheduleDate) scheduleDate.textContent = key;
 
         container.replaceChildren();
 
-        if (!record) {
+        if (!day.times) {
             const error = document.createElement("p");
             error.className = "error-message";
             error.textContent =
-                "Prayer times are not available for this date.";
+                "Prayer times are unavailable for this date. Check the timetable or calculation engine.";
             container.appendChild(error);
             return;
         }
+
+        addSourceNotice(container, day);
 
         for (const prayer of PRAYERS) {
             const card = document.createElement("div");
@@ -198,129 +277,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const time = document.createElement("span");
             time.className = "time-display";
-            time.textContent = isValidTime(record[prayer.key])
-                ? record[prayer.key]
-                : "Unavailable";
+            time.textContent = day.times[prayer.key];
 
             card.append(name, time);
             container.appendChild(card);
         }
-    }
-
-    function renderCountdown() {
-        if (!nextHeading || !nextTime || !countdown || !nextLabel) {
-            showMessage(
-                "Countdown UI is missing from index.html.",
-                true
-            );
-            return;
-        }
-
-        const now = new Date();
-        const todayKey = dateKey(now);
-        const today = findRecord(todayKey);
-
-        if (!isComplete(today)) {
-            nextLabel.textContent = "UPCOMING PRAYER";
-            nextHeading.textContent = "Unavailable";
-            nextTime.textContent = "--:--";
-            countdown.textContent = "--:--:--";
-
-            showMessage(
-                "Today's timetable is missing or has invalid prayer times.",
-                true
-            );
-            highlightNext(null);
-            return;
-        }
-
-        const candidates = [];
-
-        for (const prayer of PRAYERS) {
-            try {
-                candidates.push({
-                    ...prayer,
-                    date: todayKey,
-                    instant: berlinInstant(todayKey, today[prayer.key])
-                });
-            } catch (error) {
-                console.error(error);
-                nextHeading.textContent = "Unavailable";
-                countdown.textContent = "--:--:--";
-                showMessage(
-                    "A prayer time cannot be resolved in Europe/Berlin.",
-                    true
-                );
-                highlightNext(null);
-                return;
-            }
-        }
-
-        const tomorrowKey = addDays(todayKey, 1);
-        const tomorrow = findRecord(tomorrowKey);
-
-        if (tomorrow && isValidTime(tomorrow.fajr)) {
-            try {
-                candidates.push({
-                    name: "Fajr",
-                    key: "fajr",
-                    date: tomorrowKey,
-                    instant: berlinInstant(tomorrowKey, tomorrow.fajr)
-                });
-            } catch (error) {
-                console.error(error);
-                showMessage("Tomorrow's Fajr time is invalid.", true);
-                return;
-            }
-        }
-
-        const next = candidates
-            .filter(prayer => prayer.instant.getTime() > now.getTime())
-            .sort((a, b) => a.instant - b.instant)[0];
-
-        if (!next) {
-            nextHeading.textContent = "Unavailable";
-            nextTime.textContent = "--:--";
-            countdown.textContent = "--:--:--";
-
-            showMessage(
-                "The next prayer time is unavailable. Check tomorrow's timetable.",
-                true
-            );
-            highlightNext(null);
-            return;
-        }
-
-        nextLabel.textContent = "NEXT PRAYER";
-        nextHeading.textContent = next.name;
-
-        nextTime.textContent =
-            `${next.date === todayKey ? "Today" : "Tomorrow"} · ` +
-            next.instant.toLocaleTimeString("en-GB", {
-                timeZone: TIME_ZONE,
-                hour: "2-digit",
-                minute: "2-digit",
-                hourCycle: "h23"
-            });
-
-        const remaining = Math.max(
-            0,
-            next.instant.getTime() - now.getTime()
-        );
-
-        const seconds = Math.floor(remaining / 1000);
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const remainder = seconds % 60;
-
-        countdown.textContent = [
-            String(hours).padStart(2, "0"),
-            String(minutes).padStart(2, "0"),
-            String(remainder).padStart(2, "0")
-        ].join(":");
-
-        showMessage(`Time remaining until ${next.name}.`);
-        highlightNext(next);
     }
 
     function highlightNext(next) {
@@ -339,6 +300,114 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    function renderCountdown() {
+        if (!nextHeading || !nextTime || !countdown || !nextLabel) {
+            showMessage("Countdown UI is missing from index.html.", true);
+            return;
+        }
+
+        const now = new Date();
+        const todayKey = dateKey(now);
+        const today = getDay(todayKey);
+
+        function unavailable(text) {
+            nextLabel.textContent = "UPCOMING PRAYER";
+            nextHeading.textContent = "Unavailable";
+            nextTime.textContent = "--:--";
+            countdown.textContent = "--:--:--";
+            showMessage(text, true);
+            highlightNext(null);
+        }
+
+        if (!today.times) {
+            unavailable(today.label);
+            return;
+        }
+
+        const candidates = [];
+
+        for (const prayer of PRAYERS) {
+            try {
+                candidates.push({
+                    ...prayer,
+                    date: todayKey,
+                    instant: berlinInstant(todayKey, today.times[prayer.key]),
+                    estimated: today.estimated
+                });
+            } catch (error) {
+                console.error(error);
+                unavailable("A prayer time cannot be resolved in Europe/Berlin.");
+                return;
+            }
+        }
+
+        const tomorrowKey = addDays(todayKey, 1);
+        const tomorrow = getDay(tomorrowKey);
+
+        /*
+         * Do not invent tomorrow's Fajr if an official record exists
+         * but is incomplete. A wholly absent date may use an estimate.
+         */
+        if (tomorrow.times && isValidTime(tomorrow.times.fajr)) {
+            try {
+                candidates.push({
+                    name: "Fajr",
+                    key: "fajr",
+                    date: tomorrowKey,
+                    instant: berlinInstant(tomorrowKey, tomorrow.times.fajr),
+                    estimated: tomorrow.estimated
+                });
+            } catch (error) {
+                console.error(error);
+                unavailable("Tomorrow's Fajr time is invalid.");
+                return;
+            }
+        }
+
+        const next = candidates
+            .filter(prayer => prayer.instant.getTime() > now.getTime())
+            .sort((a, b) => a.instant - b.instant)[0];
+
+        if (!next) {
+            unavailable("The next prayer time is unavailable. Check the timetable.");
+            return;
+        }
+
+        nextLabel.textContent = next.estimated
+            ? "NEXT PRAYER · ESTIMATE"
+            : "NEXT PRAYER";
+
+        nextHeading.textContent = next.name;
+
+        nextTime.textContent =
+            `${next.date === todayKey ? "Today" : "Tomorrow"} · ` +
+            next.instant.toLocaleTimeString("en-GB", {
+                timeZone: TIME_ZONE,
+                hour: "2-digit",
+                minute: "2-digit",
+                hourCycle: "h23"
+            });
+
+        const seconds = Math.max(
+            0,
+            Math.floor((next.instant.getTime() - now.getTime()) / 1000)
+        );
+
+        countdown.textContent = [
+            String(Math.floor(seconds / 3600)).padStart(2, "0"),
+            String(Math.floor((seconds % 3600) / 60)).padStart(2, "0"),
+            String(seconds % 60).padStart(2, "0")
+        ].join(":");
+
+        showMessage(
+            next.estimated
+                ? "Estimated countdown. Check Al-Huda's official timetable."
+                : `Time remaining until ${next.name}.`
+        );
+
+        highlightNext(next);
+    }
+
     function updateView() {
         renderSchedule(selectedDate);
 
@@ -351,13 +420,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function initialise() {
-        if (yearCopy) {
-            yearCopy.textContent = dateKey().slice(0, 4);
-        }
+        if (yearCopy) yearCopy.textContent = dateKey().slice(0, 4);
 
         selectedDate = dateKey();
 
         try {
+            if (!window.PrayerEngine) {
+                throw new Error(
+                    "prayer-engine.js did not load. Check its script path and order."
+                );
+            }
+
             const response = await fetch(DATA_URL);
 
             if (!response.ok) {
@@ -379,8 +452,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const dates = new Set();
 
             for (const record of timetable) {
-                if (!record || typeof record.date !== "string") {
-                    throw new Error("A timetable record has no valid date.");
+                if (
+                    !record ||
+                    typeof record.date !== "string" ||
+                    !/^\d{4}-\d{2}-\d{2}$/.test(record.date)
+                ) {
+                    throw new Error("A timetable record has an invalid date.");
                 }
 
                 if (dates.has(record.date)) {
@@ -395,10 +472,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (intervalId) clearInterval(intervalId);
             intervalId = setInterval(renderCountdown, 1000);
         } catch (error) {
-            console.error("Failed to load prayer timetable:", error);
+            console.error("Failed to initialise prayer timetable:", error);
 
-            container.textContent =
-                "Unable to load the prayer timetable.";
+            container.textContent = "Unable to load the prayer timetable.";
 
             if (nextHeading) nextHeading.textContent = "Unavailable";
             if (nextTime) nextTime.textContent = "--:--";
@@ -424,7 +500,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!document.hidden) {
             const todayKey = dateKey();
 
-            // Keep tomorrow selected only if it is still tomorrow.
             if (
                 selectedDate !== todayKey &&
                 selectedDate !== addDays(todayKey, 1)

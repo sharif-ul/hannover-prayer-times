@@ -272,3 +272,37 @@ footer p {
         transition: none !important;
     }
 }
+
+
+.estimate-notice,
+.official-notice {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.estimate-notice {
+    color: #704b08;
+    background: #fff3cd;
+    border: 1px solid #e6c66d;
+}
+
+.estimate-notice a {
+    display: inline-block;
+    margin-top: 0.25rem;
+    color: #174832;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.official-notice {
+    color: #174832;
+    background: #e8f1e9;
+    border: 1px solid #c6ddca;
+}
+
+#next-prayer-label {
+    line-height: 1.5;
+}

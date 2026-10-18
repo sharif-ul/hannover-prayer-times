@@ -1,11 +1,14 @@
 
-const CACHE_NAME = "hannover-prayer-times-v1";
+"use strict";
+
+const CACHE_NAME = "hannover-prayer-times-v2";
 
 const APP_FILES = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./prayer-engine.js",
   "./prayer-times.json",
   "./manifest.json",
   "./icons/icon-192.png",
@@ -14,25 +17,33 @@ const APP_FILES = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_FILES))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await cache.addAll(APP_FILES);
+    })
   );
 
+  // Activate the new worker as soon as installation succeeds.
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key.startsWith("hannover-prayer-times-") &&
-                           key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      )
-    )
-  );
+    (async () => {
+      const keys = await caches.keys();
 
-  self.clients.claim();
+      await Promise.all(
+        keys
+          .filter(
+            (key) =>
+              key.startsWith("hannover-prayer-times-") &&
+              key !== CACHE_NAME
+          )
+          .map((key) => caches.delete(key))
+      );
+
+      await self.clients.claim();
+    })()
+  );
 });
 
 self.addEventListener("fetch", (event) => {
@@ -42,8 +53,10 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
+  // Only handle requests from this website.
   if (url.origin !== self.location.origin) return;
 
+  // Serve navigation from the network when possible.
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(async () => {
@@ -51,21 +64,30 @@ self.addEventListener("fetch", (event) => {
         return cached || Response.error();
       })
     );
+
     return;
   }
 
+  // Prefer cached application files for reliable offline access.
   event.respondWith(
-    caches.match(request).then((cached) => {
+    (async () => {
+      const cached = await caches.match(request);
+
       if (cached) return cached;
 
-      return fetch(request).then(async (response) => {
+      try {
+        const response = await fetch(request);
+
         if (response.ok) {
           const cache = await caches.open(CACHE_NAME);
           await cache.put(request, response.clone());
         }
 
         return response;
-      });
-    })
+      } catch (error) {
+        // Do not silently substitute unrelated content.
+        return Response.error();
+      }
+    })()
   );
 });

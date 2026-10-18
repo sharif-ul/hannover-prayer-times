@@ -1,6 +1,0 @@
-python -m http.server 8000
-
-python validate_timetable.py
-
-https://YOUR-USERNAME.github.io/hannover-prayer-times/
-

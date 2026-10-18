@@ -1,0 +1,73 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#174832">
+    <meta name="description" content="Daily Islamic prayer times for Hannover, Germany.">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+    <title>Hannover Prayer Times</title>
+
+    <link rel="manifest" href="./manifest.json">
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+    <script src="./app.js" defer></script>
+</head>
+<body>
+    <header class="app-header">
+        <div class="brand-mark" aria-hidden="true">☾</div>
+        <h1 id="header-title">Hannover Prayer Times</h1>
+        <p class="location">Hannover, Germany</p>
+        <p id="date-display" aria-live="polite">Loading date...</p>
+    </header>
+
+    <main class="app-main">
+        <section id="status-section" class="countdown-card"
+                 aria-labelledby="next-prayer-heading">
+            <p class="eyebrow" id="next-prayer-label">UPCOMING PRAYER</p>
+            <h2 id="next-prayer-heading">Loading...</h2>
+            <p id="next-prayer-time">--:--</p>
+            <p id="countdown-timer" class="countdown-timer"
+               role="timer" aria-label="Time remaining">--:--:--</p>
+            <p id="countdown-message" aria-live="polite">
+                Loading prayer timetable...
+            </p>
+        </section>
+
+        <section class="schedule-section"
+                 aria-labelledby="schedule-heading">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">DAILY SCHEDULE</p>
+                    <h2 id="schedule-heading">Prayer times</h2>
+                </div>
+                <span id="schedule-date" class="schedule-date"></span>
+            </div>
+
+            <div id="prayer-times-container" aria-live="polite">
+                <p>Loading prayer times...</p>
+            </div>
+        </section>
+
+        <div class="date-navigation">
+            <button id="date-switcher-button" type="button">
+                View Tomorrow
+            </button>
+        </div>
+
+        <p class="timezone-note">
+            All times are local to Hannover (Europe/Berlin).
+        </p>
+    </main>
+
+    <footer>
+        <p>&copy; <span id="year-copy"></span>
+            Hannover Prayer Times</p>
+    </footer>
+</body>
+</html>

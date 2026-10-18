@@ -1,0 +1,4 @@
+python -m http.server 8000
+
+python validate_timetable.py
+

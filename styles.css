@@ -1,0 +1,274 @@
+
+:root {
+    color-scheme: light;
+    --forest: #174832;
+    --forest-dark: #103523;
+    --cream: #f7f4eb;
+    --white: #ffffff;
+    --gold: #d8b76b;
+    --text: #24382d;
+    --muted: #68766b;
+    --border: #e5e4d9;
+    --error: #a12c2c;
+    --radius: 18px;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--cream);
+    color: var(--text);
+    line-height: 1.5;
+}
+
+.app-header {
+    text-align: center;
+    padding: 34px 20px 24px;
+}
+
+.brand-mark {
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    margin: 0 auto 14px;
+    border-radius: 17px;
+    background: var(--forest);
+    color: var(--gold);
+    font-size: 32px;
+}
+
+h1, h2, p {
+    margin-top: 0;
+}
+
+.app-header h1 {
+    margin-bottom: 5px;
+    color: var(--forest);
+    font-size: clamp(1.5rem, 5vw, 2rem);
+    letter-spacing: -0.04em;
+}
+
+.location,
+#date-display {
+    margin-bottom: 5px;
+    color: var(--muted);
+}
+
+#date-display {
+    font-size: 0.95rem;
+}
+
+.app-main {
+    width: min(100% - 32px, 580px);
+    margin: 0 auto;
+}
+
+.countdown-card {
+    padding: 27px 20px;
+    border-radius: 24px;
+    background: var(--forest);
+    color: var(--white);
+    text-align: center;
+    box-shadow: 0 12px 28px rgb(23 72 50 / 12%);
+}
+
+.eyebrow {
+    margin-bottom: 10px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 750;
+    letter-spacing: 0.14em;
+}
+
+.countdown-card .eyebrow {
+    color: #d5e2d7;
+}
+
+.countdown-card h2 {
+    margin-bottom: 2px;
+    font-size: clamp(1.8rem, 7vw, 2.5rem);
+    letter-spacing: -0.04em;
+}
+
+#next-prayer-time {
+    margin-bottom: 15px;
+    color: #d5e2d7;
+}
+
+.countdown-timer {
+    margin: 0 0 12px;
+    color: var(--gold);
+    font-size: clamp(2rem, 8vw, 3.25rem);
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.035em;
+}
+
+#countdown-message {
+    margin-bottom: 0;
+    color: #e2eae3;
+    font-size: 0.9rem;
+}
+
+#countdown-message.error-message {
+    color: #ffe0d9;
+}
+
+.schedule-section {
+    margin-top: 30px;
+}
+
+.section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.section-heading .eyebrow {
+    margin-bottom: 4px;
+}
+
+.section-heading h2 {
+    margin-bottom: 0;
+    color: var(--forest);
+    font-size: 1.45rem;
+    letter-spacing: -0.03em;
+}
+
+.schedule-date {
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+#prayer-times-container {
+    display: grid;
+    gap: 10px;
+}
+
+.prayer-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 17px 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--white);
+    transition: border-color 180ms ease,
+        background-color 180ms ease,
+        transform 180ms ease;
+}
+
+.prayer-name {
+    font-weight: 650;
+    color: var(--text);
+}
+
+.time-display {
+    color: var(--forest);
+    font-size: 1.15rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+}
+
+.prayer-card.next-prayer {
+    border: 2px solid var(--gold);
+    background: #fffaf0;
+    box-shadow: 0 3px 12px rgb(216 183 107 / 12%);
+}
+
+.prayer-card.next-prayer .prayer-name::after {
+    content: "  · NEXT";
+    color: #87651c;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.error-message {
+    padding: 14px;
+    border-radius: 12px;
+    background: #fff0ed;
+    color: var(--error);
+}
+
+.date-navigation {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+}
+
+#date-switcher-button {
+    min-height: 48px;
+    padding: 12px 24px;
+    border: 1px solid var(--forest);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--forest);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 180ms ease,
+        color 180ms ease;
+}
+
+#date-switcher-button:hover {
+    background: var(--forest);
+    color: var(--white);
+}
+
+#date-switcher-button:focus-visible {
+    outline: 3px solid var(--gold);
+    outline-offset: 4px;
+}
+
+.timezone-note {
+    margin: 20px 0 28px;
+    color: var(--muted);
+    text-align: center;
+    font-size: 0.8rem;
+}
+
+footer {
+    padding: 18px 16px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+footer p {
+    margin: 0;
+}
+
+@media (min-width: 700px) {
+    .app-header {
+        padding-top: 44px;
+    }
+
+    .app-main {
+        width: min(100% - 48px, 580px);
+    }
+
+    .countdown-card {
+        padding: 34px 28px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition: none !important;
+    }
+}

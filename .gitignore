@@ -1,0 +1,6 @@
+Gebetszeiten_2026.pdf
+prompt.txt
+venv/
+.venv/
+__pycache__/
+*.pyc

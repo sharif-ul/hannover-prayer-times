@@ -230,7 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (day.estimated) {
             notice.textContent =
-                "ESTIMATE — Calculated times; not confirmed by Al-Huda. " ;
+                "ESTIMATE — These times are calculated for this date and are not official mosque-published times.";
 
             const link = document.createElement("a");
             link.href = "https://alhuda-hannover.de/";
@@ -249,9 +249,16 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderSchedule(key) {
         const day = getDay(key);
 
+        console.log("Date:", day.date);
+        console.log("Source:", day.source);
+        console.log("Estimated:", day.estimated);
+        console.log("Times:", day.times);
+
         dateDisplay.textContent = formatDate(key);
 
-        if (scheduleDate) scheduleDate.textContent = key;
+        if (scheduleDate) {
+            scheduleDate.textContent = key;
+        }
 
         container.replaceChildren();
 
@@ -259,7 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const error = document.createElement("p");
             error.className = "error-message";
             error.textContent =
-                "Prayer times are unavailable for this date. Check the timetable or calculation engine.";
+                day.label || "Prayer times are unavailable.";
             container.appendChild(error);
             return;
         }
